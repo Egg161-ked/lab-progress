@@ -680,12 +680,9 @@ export default {
 }
 
 .att-del{
-	font-size:26rpx;
+	font-size:24rpx;
 	color:#FF3B30;
-	min-height:88rpx;
-	line-height:88rpx;
-	padding-left:28rpx;
-	padding-right:8rpx;
+	padding-left:20rpx;
 }
 
 .att-btns{
@@ -695,8 +692,6 @@ export default {
 
 .mini-btn{
 	margin-right:16rpx;
-	min-height:88rpx;
-	line-height:88rpx;
 }
 
 /* ---------- 评论 ---------- */
@@ -725,11 +720,8 @@ export default {
 }
 
 .c-del{
-	font-size:26rpx;
+	font-size:22rpx;
 	color:#FF3B30;
-	min-height:88rpx;
-	line-height:88rpx;
-	padding-left:28rpx;
 }
 
 .c-text{

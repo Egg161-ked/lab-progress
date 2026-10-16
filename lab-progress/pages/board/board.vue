@@ -454,15 +454,12 @@ page{
 }
 
 .mini{
-	font-size:26rpx;
+	font-size:24rpx;
 	color:#fff;
 	background:#007AFF;
-	border-radius:16rpx;
-	min-height:88rpx;
-	line-height:88rpx;
-	padding:0 28rpx;
+	border-radius:8rpx;
+	padding:8rpx 20rpx;
 	margin-right:14rpx;
-	text-align:center;
 }
 
 .mini-plain{
