@@ -299,6 +299,14 @@ button::after {
 	border: none;
 }
 
+/* Apple HIG：可点区域不得小于 44×44pt（≈88rpx）。
+   小程序 button 的 mini 尺寸只有约 60rpx，手指容易点不中，这里统一抬高。 */
+button {
+	min-height: 88rpx;
+	line-height: 88rpx;
+	box-sizing: border-box;
+}
+
 .btn-row {
 	display: flex;
 	flex-wrap: wrap;
@@ -306,10 +314,12 @@ button::after {
 }
 
 .btn {
-	font-size: 26rpx;
+	font-size: 28rpx;
 	font-weight: 500;
-	line-height: 2.3;
-	padding: 0 30rpx;
+	min-height: 88rpx;
+	line-height: 88rpx;
+	box-sizing: border-box;
+	padding: 0 34rpx;
 	margin: 0 16rpx 16rpx 0;
 	border-radius: 20rpx;
 	background: rgba(120, 120, 128, 0.12);
@@ -338,7 +348,7 @@ button::after {
 	border-radius: 24rpx;
 	font-size: 32rpx;
 	font-weight: 600;
-	line-height: 2.9;
+	line-height: 96rpx;
 	background: #007AFF;
 	color: #fff;
 	border: none;
@@ -386,15 +396,17 @@ button::after {
 	display: flex;
 	background: rgba(120, 120, 128, 0.12);
 	border-radius: 999rpx;
-	padding: 4rpx;
+	padding: 6rpx;
 	margin-bottom: 24rpx;
 }
 
 .chip {
 	flex: 1;
 	text-align: center;
-	font-size: 24rpx;
-	line-height: 2.2;
+	font-size: 26rpx;
+	min-height: 88rpx;
+	line-height: 88rpx;
+	box-sizing: border-box;
 	border-radius: 999rpx;
 	color: #1C1C1E;
 }
@@ -419,9 +431,12 @@ button::after {
 
 .input {
 	background: rgba(120, 120, 128, 0.10);
-	padding: 22rpx 24rpx;
+	height: 88rpx;
+	line-height: 88rpx;
+	padding: 0 24rpx;
 	border-radius: 20rpx;
 	font-size: 30rpx;
+	box-sizing: border-box;
 }
 
 .textarea {
