@@ -64,14 +64,36 @@
 
 		<button
 			v-if="canEditProfile || canManageRole"
-			type="primary"
+			class="btn-block"
 			:disabled="saving"
 			@click="save"
 		>
 			{{ saving ? '保存中…' : '保存' }}
 		</button>
 
-		<view v-else class="readonly-box">
+		<!-- 毕业交接：归档 / 恢复（仅管理员） -->
+		<view v-if="isAdmin && !isMe" class="archive-box">
+			<text class="t-title">{{ archived ? '该成员已归档' : '毕业 / 离组交接' }}</text>
+			<text class="t-sub t-mt6">
+				{{ archived
+					? '他不在成员列表、指派下拉和统计里；历史任务与附件仍保留他的名字。'
+					: '归档后他会从成员列表、指派下拉和统计里消失，历史数据不断链；归档前需要把他手上的项目与任务逐项移交。' }}
+			</text>
+			<button
+				v-if="archived"
+				class="btn btn-primary archive-btn"
+				size="mini"
+				@click="restore"
+			>恢复成员</button>
+			<button
+				v-else
+				class="btn archive-btn"
+				size="mini"
+				@click="goArchive"
+			>归档成员…</button>
+		</view>
+
+		<view v-if="!canEditProfile && !canManageRole && !isAdmin" class="readonly-box">
 			你只能查看该成员资料
 		</view>
 
@@ -97,6 +119,8 @@ export default {
 			saving: false,
 			canManageMember: false,   // 可改资料（admin/mentor）
 			canManageRole: false,     // 可改角色（admin/mentor）
+			isAdmin: false,
+			archived: false,
 			isMe: false,
 			form: {
 				role: 'member',
@@ -153,6 +177,7 @@ export default {
 		const p = await loadPerm(true)
 		this.canManageMember = !!p.canManageMember
 		this.canManageRole = !!p.canManageRole
+		this.isAdmin = p.role === 'admin'
 		await this.getMember()
 	},
 
@@ -186,12 +211,37 @@ export default {
 				}
 				this.member = m
 				this.isMe = !!m.isMe
+				this.archived = !!m.archived
 				this.form.role = m.role || 'member'
 				this.form.direction = m.direction || ''
 				this.form.intro = m.intro || ''
 			} catch (e) {
 				console.error('[memberDetail] 加载失败:', e)
 			}
+		},
+
+		/** 去归档页（那里会列出他手上的项目与任务，逐项移交后才能归档） */
+		goArchive() {
+			uni.navigateTo({
+				url: '/pages/archive/archive?id=' + this.memberId
+			})
+		},
+
+		/** 恢复已归档成员 */
+		restore() {
+			uni.showModal({
+				title: '恢复成员',
+				content: '恢复后他会重新出现在成员列表与指派下拉里。注意：归档时移交出去的项目和任务不会自动要回来。',
+				success: async (res) => {
+					if (!res.confirm) return
+					try {
+						await api.restoreMember(this.memberId)
+						await this.getMember(true)
+					} catch (e) {
+						console.error('[memberDetail] 恢复失败:', e)
+					}
+				}
+			})
 		},
 
 		changeRole(e) {
@@ -364,6 +414,16 @@ export default {
 	width:100%;
 	height:160rpx;
 	box-sizing:border-box;
+}
+
+.archive-box{
+	margin-top:32rpx;
+	padding-top:28rpx;
+	border-top:1rpx solid rgba(60,60,67,0.12);
+}
+
+.archive-btn{
+	margin-top:20rpx;
 }
 
 .readonly-box{

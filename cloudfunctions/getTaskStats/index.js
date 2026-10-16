@@ -44,7 +44,8 @@ exports.main = async (event, context) => {
 
     const projects = pjRes.data
     const tasks = taskRes.data
-    const users = userRes.data
+    // 归档成员（毕业的人）不进"按成员"统计，否则完成率永远被他们拉低
+    const users = userRes.data.filter((u) => !u.archived)
     const today = todayStr()
 
     // ---------- 总计 ----------

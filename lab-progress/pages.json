@@ -68,6 +68,13 @@
 		},
 
 		{
+			"path": "pages/archive/archive",
+			"style": {
+				"navigationBarTitleText": "归档成员"
+			}
+		},
+
+		{
 			"path": "pages/myTasks/myTasks",
 			"style": {
 				"navigationBarTitleText": "我的任务",

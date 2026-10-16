@@ -69,6 +69,8 @@ exports.main = async (event, context) => {
             intro: u.intro || '',
             groupId: u.groupId || '',
             isMe: u._openid === openid,
+            archived: !!u.archived,
+            archivedTime: u.archivedTime || '',
             createTime: u.createTime || null
           }
         }
@@ -83,6 +85,15 @@ exports.main = async (event, context) => {
     }
     if (role) {
       where.role = role
+    }
+
+    // 归档成员默认不返回（毕业的人不该再出现在成员列表、指派下拉、统计里）
+    //   memberStatus: 'active'（默认）| 'archived' | 'all'
+    const memberStatus = ((event && event.memberStatus) || 'active').trim()
+    if (memberStatus === 'archived') {
+      where.archived = true
+    } else if (memberStatus !== 'all') {
+      where.archived = db.command.neq(true)
     }
 
     let query = db.collection('users')
@@ -104,6 +115,8 @@ exports.main = async (event, context) => {
       intro: u.intro || '',
       groupId: u.groupId || '',
       isMe: u._openid === openid,
+      archived: !!u.archived,
+      archivedTime: u.archivedTime || '',
       openid: canSeeOpenid ? (u._openid || '') : undefined,
       openidMasked: u._openid ? String(u._openid).slice(0, 6) + '...' : '',
       createTime: u.createTime || null

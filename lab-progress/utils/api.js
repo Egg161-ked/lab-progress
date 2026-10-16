@@ -212,6 +212,30 @@ export const api = {
 		loading: true,
 		loadingText: '保存中...',
 		successText: '保存成功'
+	}),
+
+	/**
+	 * 成员归档 / 恢复（毕业交接）
+	 * 归档 = 软删除：从成员列表、指派下拉、统计里隐藏，历史数据不断链
+	 */
+	archivePreview: (memberId) => callFunction('archiveMember', {
+		action: 'preview', memberId
+	}, { loading: true, loadingText: '检查中...' }),
+	archiveMember: (data) => callFunction('archiveMember', { action: 'archive', ...data }, {
+		loading: true,
+		loadingText: '归档中...',
+		successText: '已归档'
+	}),
+	restoreMember: (memberId) => callFunction('archiveMember', { action: 'restore', memberId }, {
+		loading: true,
+		loadingText: '恢复中...',
+		successText: '已恢复'
+	}),
+
+	/** 数据导出 / 备份（仅管理员） */
+	exportAll: () => callFunction('dataExport', { action: 'exportAll' }, {
+		loading: true,
+		loadingText: '导出中...'
 	})
 }
 

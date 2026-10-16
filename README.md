@@ -22,6 +22,8 @@
 | **我的任务** | 我负责的项目 + 指派给我的任务，筛选 / 逾期提醒 |
 | **进度统计** | 总览指标、状态分布、按项目、按成员 |
 | **成员管理** | 列表 / 搜索 / 角色筛选 / 改角色 / 改资料 |
+| **成员归档（毕业交接）** | 毕业生可**归档**（软删除）：从成员列表、指派下拉、统计里隐藏，历史数据不断链；归档前**强制逐项移交**他负责的项目与未完成任务；可随时恢复 |
+| **数据导出 / 备份** | 管理员一键导出 JSON（含昵称→openid 映射表与附件清单），用于备份或**换主体迁移** |
 | **UI 设计层** | 统一设计层（iOS 风格）：状态色卡、卡片、徽章、进度条、按钮、骨架屏、吸顶毛玻璃标题栏 |
 
 ---
@@ -146,7 +148,9 @@ HBuilderX 打开 `lab-progress` → 运行到微信小程序模拟器（或按�
 | `createTask` / `updateTask` / `deleteTask` | 任务增改删；指派对象必须是项目组成员 | admin / mentor / **该项目负责人**；成员可改自己任务的进度与状态 |
 | `getMyTasks` | 我的任务 + 我负责的项目 | 已登录 |
 | `getTaskStats` | 进度统计（总览 / 按项目 / 按成员） | 已登录 |
-| `getMembers` / `updateMember` | 成员列表与详情 / 改角色与资料 | admin 全部；mentor 仅"组长↔成员" |
+| `getMembers` / `updateMember` | 成员列表与详情 / 改角色与资料（默认只返回在职成员） | admin 全部；mentor 仅"组长↔成员" |
+| `archiveMember` | **成员归档 / 恢复**：preview（影响清单）/ archive（带移交方案）/ restore / list | 仅管理员；不能归档自己与最后一个管理员 |
+| `dataExport` | **数据导出 / 备份**（users+projects+tasks+昵称映射+附件清单） | 仅管理员 |
 | `taskExtra` | 成果附件（增删/取临时链接/兜底读内容）+ 评论（增删） | 见下 |
 
 `taskExtra` 的 6 个动作：`addAttachment` `deleteAttachment` `addComment` `deleteComment` `getFileURLs` `getFileBase64`
@@ -175,7 +179,8 @@ HBuilderX 打开 `lab-progress` → 运行到微信小程序模拟器（或按�
 ## 数据库结构
 
 ```
-users     { _openid, nickName, avatarUrl, role, groupId, direction, intro, createTime }
+users     { _openid, nickName, avatarUrl, role, groupId, direction, intro,
+            archived, archivedTime, archivedBy, createTime }
 projects  { name, description, status, progress, leaderId, memberIds[], creatorId, createTime, updateTime }
 tasks     { title, description, projectId, assignUser, deadline, status, progress, creatorId,
             attachments[{ fileID, name, size, uploader, uploaderName, time }],
@@ -183,7 +188,44 @@ tasks     { title, description, projectId, assignUser, deadline, status, progres
 ```
 
 > `projects.leaderId` 必须在 `projects.memberIds` 里（服务端强制）；
-> `tasks.assignUser` 必须来自项目组。
+> `tasks.assignUser` 必须来自项目组；
+> `users.archived = true` 表示该成员已归档（毕业生），默认不出现在列表/下拉/统计里。
+
+---
+
+## 毕业交接与长期维护（重要）
+
+这个系统绑定在**你注册小程序的那个主体**上，交接时容易踩坑，先把概念分清：
+
+| 概念 | 限制 | 说明 |
+|---|---|---|
+| **正式版的使用者** | **无人数上限** | 审核发布后任何微信用户都能用，微信不按人头限制 |
+| **体验成员** | 个人主体较少（常见 15 人） | 只给"未发布、内部试用"的名单；十几个人长期用体验版迟早会卡住 |
+| **项目成员**（开发者/运营者） | 个人主体同样较少 | 能进后台改代码/发版本的人，适合把师弟加成这个 |
+| **云开发配额** | 免费套餐按**资源**算，不按人 | 数据库读写次数、存储、CDN 流量、云函数调用量 |
+| **ICP 备案** | 新注册小程序必须备案才能上线 | 在公众平台提交，个人主体也可备案，一般 1~20 天 |
+
+**所以正确的长期方案是：提交审核、发布正式版**（不受体验成员限制），并把下一届同学加成**开发者/运营者**。
+
+### 毕业时怎么把系统交出去
+
+**情况一：小程序继续挂在原主体名下（最省事）**
+1. 公众平台 → 成员管理 → 把师弟加成**开发者/运营者**
+2. 在成员页把毕业生**归档**（他会自动从列表/下拉/统计里消失，历史数据保留）
+3. 把本仓库 + `交接文档.md` 交给实验室留档
+
+**情况二：换成实验室/学院的组织主体（所有权真正转移）**
+1. 用组织资质（营业执照/事业单位法人证书）注册新小程序 AppID，开通新云环境
+2. 用管理员账号导出数据：跑 `node .devtools/export-data.js`（内部调用 `dataExport` 云函数）
+   得到 `data.json`（全量数据）、`nameMap.json`（昵称→openid）、`attachments.json`（附件清单）
+3. 在新小程序里让每个人**登录一次**（新 users 表建号）
+4. 按 `nameMap.json` 的昵称把「旧 openid → 新 openid」建立映射，用它重写
+   `projects.memberIds` / `projects.leaderId` / `tasks.assignUser` /
+   `tasks.attachments[].uploader` / `tasks.comments[].author`
+5. 附件按 `attachments.json` 从旧环境下载再上传到新环境，替换 fileID
+
+> ⚠️ 换 AppID 后**所有人的 openid 都会变**，所以第 4 步不可跳过；内容数据本身不会丢。
+> ⚠️ 个人主体的小程序**不支持主体变更/过户**，所以"把现在的 AppID 转给师弟"这条路是不通的。
 
 ---
 

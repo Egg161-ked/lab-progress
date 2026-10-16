@@ -57,6 +57,12 @@ exports.main = async (event, context) => {
     }
 
     const isSelf = target._openid === openid
+
+    // 已归档成员（毕业生）不能再改角色：他不在职，改了没有意义还可能造成
+    // "已归档却还是组长"这类脏数据。需要恢复的话先在成员页点"恢复成员"。
+    if (target.archived && event.role !== undefined) {
+      return { success: false, message: '该成员已归档，不能修改角色（请先恢复成员）' }
+    }
     const targetRole = target.role || 'member'
 
     if (!canManage && !isSelf) {

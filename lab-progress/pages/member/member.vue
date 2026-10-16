@@ -24,6 +24,19 @@
 		<button class="btn btn-primary search-btn" size="mini" @click="load()">搜索</button>
 	</view>
 
+	<!-- 在职 / 已归档 -->
+	<view class="chips">
+		<text
+			v-for="s in statusFilters"
+			:key="s.value"
+			class="chip"
+			:class="memberStatus === s.value ? 'chip-on' : ''"
+			@click="setStatus(s.value)"
+		>
+			{{ s.label }}
+		</text>
+	</view>
+
 	<!-- 角色筛选 -->
 	<view class="chips">
 		<text
@@ -59,6 +72,7 @@
 				<text class="t-title">{{ m.name }}</text>
 				<text class="badge" :class="'role-' + m.roleKey">{{ m.roleName }}</text>
 				<text v-if="m.isMe" class="me-tag">我</text>
+				<text v-if="m.archived" class="badge badge-plain archived-tag">已归档</text>
 			</view>
 			<text class="t-weak t-mt6">{{ m.direction }}</text>
 		</view>
@@ -96,10 +110,16 @@ export default {
 			loading: true,
 			keyword: '',
 			role: '',
+			memberStatus: 'active',
 			myRoleText: '',
 			canManage: false,
 			rows: [],
 			count: 0,
+			statusFilters: [
+				{ label: '在职', value: 'active' },
+				{ label: '已归档', value: 'archived' },
+				{ label: '全部', value: 'all' }
+			],
 			roleFilters: [
 				{ label: '全部', value: '' },
 				{ label: '管理员', value: 'admin' },
@@ -158,10 +178,16 @@ export default {
 					roleKey: m.role || 'member',
 					roleName: roleText(m.role),
 					direction: m.direction || '未填写方向',
-					isMe: !!m.isMe
+					isMe: !!m.isMe,
+					archived: !!m.archived
 				}
 			})
 			this.count = this.rows.length
+		},
+
+		setStatus(v) {
+			this.memberStatus = v
+			this.load()
 		},
 
 		setRole(v) {
@@ -174,7 +200,8 @@ export default {
 			try {
 				const res = await api.getMembers({
 					keyword: this.keyword,
-					role: this.role
+					role: this.role,
+					memberStatus: this.memberStatus
 				}, silent)
 				this.members = res.members || []
 			} catch (e) {
@@ -265,6 +292,10 @@ export default {
 	background:rgba(52,199,89,0.16);
 	border-radius:999rpx;
 	padding:2rpx 12rpx;
+	margin-left:12rpx;
+}
+
+.archived-tag{
 	margin-left:12rpx;
 }
 
