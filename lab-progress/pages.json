@@ -1,0 +1,87 @@
+{
+	"pages": [
+
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "登录"
+			}
+		},
+
+		{
+			"path": "pages/home/home",
+			"style": {
+				"navigationBarTitleText": "系统首页",
+				"enablePullDownRefresh": true
+			}
+		},
+
+		{
+			"path": "pages/project/project",
+			"style": {
+				"navigationBarTitleText": "项目详情"
+			}
+		},
+
+		{
+			"path": "pages/board/board",
+			"style": {
+				"navigationBarTitleText": "任务看板",
+				"enablePullDownRefresh": false
+			}
+		},
+
+		{
+			"path": "pages/projectEdit/projectEdit",
+			"style": {
+				"navigationBarTitleText": "项目信息"
+			}
+		},
+
+		{
+			"path": "pages/task/task",
+			"style": {
+				"navigationBarTitleText": "任务详情"
+			}
+		},
+
+		{
+			"path": "pages/taskEdit/taskEdit",
+			"style": {
+				"navigationBarTitleText": "任务信息"
+			}
+		},
+
+		{
+			"path": "pages/member/member",
+			"style": {
+				"navigationBarTitleText": "成员管理",
+				"enablePullDownRefresh": true
+			}
+		},
+
+		{
+			"path": "pages/member/memberDetail",
+			"style": {
+				"navigationBarTitleText": "成员详情"
+			}
+		},
+
+		{
+			"path": "pages/myTasks/myTasks",
+			"style": {
+				"navigationBarTitleText": "我的任务",
+				"enablePullDownRefresh": true
+			}
+		},
+
+		{
+			"path": "pages/stats/stats",
+			"style": {
+				"navigationBarTitleText": "进度统计",
+				"enablePullDownRefresh": true
+			}
+		}
+
+	]
+}

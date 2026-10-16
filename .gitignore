@@ -1,0 +1,25 @@
+# ---- 依赖 ----
+node_modules/
+
+# ---- uni-app 编译产物 ----
+unpackage/
+
+# ---- 微信开发者工具私有配置（官方建议不入库）----
+project.private.config.json
+**/project.private.config.json
+
+# ---- IDE / 系统 ----
+.hbuilderx/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ---- 日志与临时文件 ----
+*.log
+*.tmp
+
+# ---- 本地开发工具与脚本（含开发密钥，绝不能入库）----
+.devtools/
+cloudfunctions/devTools/
+cloudfunctions/devLog/
