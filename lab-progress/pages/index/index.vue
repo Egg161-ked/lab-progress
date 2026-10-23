@@ -106,7 +106,14 @@
 					const user = await ensureLogin()
 					this.userInfo = user || {}
 					this.form.nickName = this.userInfo.nickName || ''
-					await loadPerm(true)   // 预加载权限矩阵，供后续页面直接用
+					const p = await loadPerm(true)   // 预加载权限矩阵，供后续页面直接用
+
+					// 注册审核闸门：未通过审核的账号只能看到申请页
+					const st = (p && p.status) || this.userInfo.status || 'active'
+					if (st !== 'active') {
+						uni.reLaunch({ url: '/pages/pending/pending' })
+						return
+					}
 				} catch (e) {
 					uni.showToast({ title: '登录失败，请稍后重试', icon: 'none' })
 				} finally {

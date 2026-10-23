@@ -5,6 +5,19 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const db = cloud.database()
 
+/**
+ * 账号状态闸门（注册审核机制的核心，服务端强制）
+ *   status: pending(待审核) / active(已通过) / rejected(已拒绝) / blocked(已禁用)
+ *   没有 status 字段的老账号（上线前就在用的）按 active 处理
+ */
+function notApproved(caller) {
+  const st = (caller && caller.status) || 'active'
+  if (st === 'active') return null
+  if (st === 'pending') return { success: false, code: 'PENDING', message: '账号待审核，请等待导员或管理员审核' }
+  if (st === 'rejected') return { success: false, code: 'REJECTED', message: '申请未通过，可在申请页修改后重新提交' }
+  return { success: false, code: 'BLOCKED', message: '账号已被禁用，请联系管理员' }
+}
+
 exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
@@ -19,10 +32,12 @@ exports.main = async (event, context) => {
   }
 
   try {
-    const me = await db.collection('users').where({ _openid: openid }).count()
-    if (me.total === 0) {
+    const meRes = await db.collection('users').where({ _openid: openid }).limit(1).get()
+    if (meRes.data.length === 0) {
       return { success: false, message: '用户不存在，请先进入小程序完成登录' }
     }
+    const __gate = notApproved(meRes.data[0])
+    if (__gate) return __gate
 
     let task
     try {

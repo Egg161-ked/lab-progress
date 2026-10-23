@@ -15,7 +15,8 @@ import { api } from './api.js'
 const state = {
 	user: null,
 	openid: '',
-	perm: null
+	perm: null,
+	status: 'active'   // 注册审核状态：pending / active / rejected / blocked
 }
 
 export const ROLE_TEXT = {
@@ -68,6 +69,9 @@ export async function loadPerm(force = false) {
 	try {
 		const res = await api.checkPermission()
 		state.perm = { role: res.role || 'member', ...(res.permission || {}) }
+		state.perm.status = res.status || 'active'
+		state.perm.canReview = !!res.canReview
+		state.status = res.status || 'active'
 	} catch (e) {
 		// 查不到权限时按最小权限处理（安全默认）
 		state.perm = {
@@ -85,7 +89,9 @@ export async function loadPerm(force = false) {
 			canManageRole: false,
 			canAssignAdmin: false,
 			assignableRoles: [],
-			isReadOnly: false
+			isReadOnly: false,
+			status: 'active',
+			canReview: false
 		}
 	}
 	return state.perm
@@ -116,6 +122,22 @@ export function perm() {
 	return state.perm
 }
 
+/** 当前账号的审核状态 */
+export function accountStatus() {
+	return state.status || 'active'
+}
+
+/** 是否已通过审核（能进系统） */
+export function isApproved() {
+	return accountStatus() === 'active'
+}
+
+/** 是否能审核注册申请（管理员 / 导师） */
+export function canReview() {
+	const p = perm()
+	return !!(p && p.canReview)
+}
+
 /** 该任务是否分配给当前用户 */
 export function isMyTask(task) {
 	return !!(task && task.assignUser && state.openid && task.assignUser === state.openid)
@@ -128,4 +150,4 @@ export function clearState() {
 	state.perm = null
 }
 
-export default { ensureLogin, loadPerm, perm, user, currentOpenid, isMyTask, roleText, clearState }
+export default { ensureLogin, loadPerm, perm, user, currentOpenid, isMyTask, roleText, clearState, accountStatus, isApproved, canReview }

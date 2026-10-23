@@ -20,6 +20,19 @@ async function getCaller(openid) {
   return r.data[0] || null
 }
 
+/**
+ * 账号状态闸门（注册审核机制的核心，服务端强制）
+ *   status: pending(待审核) / active(已通过) / rejected(已拒绝) / blocked(已禁用)
+ *   没有 status 字段的老账号（上线前就在用的）按 active 处理
+ */
+function notApproved(caller) {
+  const st = (caller && caller.status) || 'active'
+  if (st === 'active') return null
+  if (st === 'pending') return { success: false, code: 'PENDING', message: '账号待审核，请等待导员或管理员审核' }
+  if (st === 'rejected') return { success: false, code: 'REJECTED', message: '申请未通过，可在申请页修改后重新提交' }
+  return { success: false, code: 'BLOCKED', message: '账号已被禁用，请联系管理员' }
+}
+
 exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
@@ -38,6 +51,12 @@ exports.main = async (event, context) => {
     const user = await getCaller(openid)
     if (!user) {
       return { success: false, message: '用户不存在，请重新进入小程序' }
+    }
+
+    // 账号状态闸门：未通过审核的账号不能访问业务数据
+    {
+      const __gate = notApproved(user)
+      if (__gate) return __gate
     }
     const role = user.role || 'member'
 

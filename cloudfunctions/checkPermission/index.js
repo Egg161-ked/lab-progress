@@ -30,6 +30,9 @@ exports.main = async (event, context) => {
 
     const user = userRes.data[0]
     const role = user.role || 'member'
+    // 账号状态：pending 待审核 / active 已通过 / rejected 已拒绝 / blocked 已禁用
+    // 这里不拦（前端要拿它决定跳哪个页面），业务云函数里才强制拦
+    const status = user.status || 'active'
 
     const isAdmin = role === 'admin'
     const isMentor = role === 'mentor'
@@ -43,11 +46,14 @@ exports.main = async (event, context) => {
     return {
       success: true,
       role,
+      status,
+      canReview: isAdmin || isMentor,
       userInfo: {
         _id: user._id,
         nickName: user.nickName,
         avatarUrl: user.avatarUrl,
-        role
+        role,
+        status
       },
       permission: {
         // ---------- 项目（导师也能建/改项目） ----------

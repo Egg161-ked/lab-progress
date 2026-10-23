@@ -75,6 +75,21 @@
 		},
 
 		{
+			"path": "pages/pending/pending",
+			"style": {
+				"navigationBarTitleText": "加入申请"
+			}
+		},
+
+		{
+			"path": "pages/review/review",
+			"style": {
+				"navigationBarTitleText": "注册审核",
+				"enablePullDownRefresh": true
+			}
+		},
+
+		{
 			"path": "pages/myTasks/myTasks",
 			"style": {
 				"navigationBarTitleText": "我的任务",

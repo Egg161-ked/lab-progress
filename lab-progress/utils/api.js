@@ -24,6 +24,25 @@
  *       提示会被 loading 的关闭动作吞掉（用户看不到"保存成功"）。
  *       因此这里统一先关 loading，再延迟 150ms 弹提示。
  */
+/** 统一跳转：账号未通过审核 → 申请页（带防抖，避免多请求同时跳） */
+let _redirectingPending = false
+function redirectToPending() {
+	if (_redirectingPending) return
+	_redirectingPending = true
+	const pages = getCurrentPages()
+	const cur = pages.length ? pages[pages.length - 1].route : ''
+	if (cur && cur.indexOf('pages/pending') >= 0) {
+		_redirectingPending = false
+		return
+	}
+	setTimeout(() => {
+		uni.reLaunch({
+			url: '/pages/pending/pending',
+			complete: () => { _redirectingPending = false }
+		})
+	}, 100)
+}
+
 export async function callFunction(name, data = {}, options = {}) {
 	const {
 		loading = false,
@@ -43,6 +62,17 @@ export async function callFunction(name, data = {}, options = {}) {
 		if (!result) {
 			throw new Error('云函数无返回，请确认已部署')
 		}
+
+		// ---------- 注册审核闸门 ----------
+		// 服务端判定"账号未通过审核"时返回 code，这里统一跳去申请页，
+		// 这样任何页面（含深层页面）被拒都会自动转走，不用每页各写一遍。
+		if (result.success === false && result.code &&
+			['PENDING', 'REJECTED', 'BLOCKED'].includes(result.code)) {
+			if (loading) uni.hideLoading()
+			redirectToPending()
+			throw new Error(result.message || '账号未通过审核')
+		}
+
 		if (result.success === false) {
 			throw new Error(result.message || '操作失败')
 		}
@@ -230,6 +260,44 @@ export const api = {
 		loading: true,
 		loadingText: '恢复中...',
 		successText: '已恢复'
+	}),
+
+	// ==================== 注册审核 ====================
+	/** 查自己的审核状态（申请页用） */
+	applyStatus: () => callFunction('apply', { action: 'myStatus' }, { showError: false }),
+	/** 提交 / 重新提交加入申请 */
+	applySubmit: (data) => callFunction('apply', { action: 'submit', ...data }, {
+		loading: true,
+		loadingText: '提交中...',
+		successText: '申请已提交'
+	}),
+	/** 待审核数量（入口红点） */
+	reviewPendingCount: () => callFunction('review', { action: 'pendingCount' }, { showError: false }),
+	/** 审核列表 */
+	reviewList: (filter) => callFunction('review', { action: 'list', filter }, { loading: true }),
+	/** 通过（可指定角色） */
+	reviewApprove: (memberId, role) => callFunction('review', { action: 'approve', memberId, role }, {
+		loading: true,
+		loadingText: '处理中...',
+		successText: '已通过'
+	}),
+	/** 拒绝 */
+	reviewReject: (memberId, reason) => callFunction('review', { action: 'reject', memberId, reason }, {
+		loading: true,
+		loadingText: '处理中...',
+		successText: '已拒绝'
+	}),
+	/** 禁用 */
+	reviewBlock: (memberId, reason) => callFunction('review', { action: 'block', memberId, reason }, {
+		loading: true,
+		loadingText: '处理中...',
+		successText: '已禁用'
+	}),
+	/** 放回待审核 */
+	reviewRestore: (memberId) => callFunction('review', { action: 'restore', memberId }, {
+		loading: true,
+		loadingText: '处理中...',
+		successText: '已放回待审核'
 	}),
 
 	/** 数据导出 / 备份（仅管理员） */

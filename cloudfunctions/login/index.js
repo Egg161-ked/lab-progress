@@ -35,13 +35,18 @@ exports.main = async (event, context) => {
 
     // ---------- 新用户：自动建号 ----------
     if (userRes.data.length === 0) {
-      // 第一个用户自动成为管理员
-      // why：否则部署完没人能进管理功能，要手动去云开发控制台改 role，
-      //      模板开箱体验很差。判断依据是"现有用户里有没有 admin"。
+      // 第一个用户自动成为管理员并直接通过审核
+      // why：否则部署完没人能进管理功能，而且会被注册审核闸门锁在门外。
+      //      判断依据是"现有用户里有没有 admin"，与人数无关。
+      //      其余新用户一律 pending（待审核），上线后陌生人进来要先申请。
       let role = DEFAULT_FIELDS.role
+      let status = 'pending'
       try {
         const adminCount = await users.where({ role: 'admin' }).count()
-        if (adminCount.total === 0) role = 'admin'
+        if (adminCount.total === 0) {
+          role = 'admin'
+          status = 'active'
+        }
       } catch (e) {
         console.warn('[login] 检查管理员失败，按普通成员建号:', e)
       }
@@ -52,6 +57,8 @@ exports.main = async (event, context) => {
         avatarUrl: (profile && profile.avatarUrl) || '',
         ...DEFAULT_FIELDS,
         role,
+        status,
+        apply: null,
         createTime: db.serverDate()
       }
 
@@ -62,7 +69,8 @@ exports.main = async (event, context) => {
         userInfo: { ...newUser, _id: addRes._id },
         openid,
         isNewUser: true,
-        becameAdmin: role === 'admin'
+        becameAdmin: role === 'admin',
+        needApproval: status !== 'active'
       }
     }
 

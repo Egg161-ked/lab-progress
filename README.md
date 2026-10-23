@@ -13,6 +13,7 @@
 | 模块 | 能力 |
 |---|---|
 | **登录与身份** | 微信静默登录自动建号、`chooseAvatar` 头像、昵称填写、**第一个登录的用户自动成为管理员** |
+| **注册审核（准入）** | 小程序上线后任何人都能搜到，所以新用户默认是**待审核**：只能填申请（真实姓名 / 学号 / 说明），看不到任何项目与任务；**导员或管理员审核通过**后才能进入。可拒绝（本人可改后重提）、可禁用 |
 | **四级权限** | 超级管理员 / 导师 / 组长 / 普通成员，前端控制按钮显隐 + **云函数侧独立二次校验** |
 | **项目** | 新建 / 编辑 / 删除（级联删任务）、状态与进度、项目组（多成员 + 其中一人任负责人） |
 | **任务** | 布置 / 指派（**只能指派给项目组成员**）/ 截止日期 / 状态 / 进度 / 逾期标红 |
@@ -134,14 +135,22 @@ HBuilderX 打开 `lab-progress` → 运行到微信小程序模拟器（或按�
 
 **第一个扫码登录的用户会自动成为管理员**，之后可以在「成员管理」里给别人分配角色。
 
+之后任何人打开小程序都会先看到**「申请加入」页**（填真实姓名 / 学号 / 申请说明），
+需要你在首页「注册审核」里点「通过」才能进入系统 —— 这是为"小程序上线后谁都能搜到"准备的准入机制。
+如果只是想自己一个人用，直接通过自己即可。
+
+> ⚠️ 上线（发布正式版）前请确认至少有一个 `admin` 账号且状态是 `active`，否则没人能审核。
+
 ---
 
 ## 云函数一览
 
 | 云函数 | 作用 | 权限 |
 |---|---|---|
-| `login` | 静默登录 / 建号（首个用户自动为 admin） | 任何用户 |
-| `checkPermission` | 返回角色与权限矩阵 | 任何用户 |
+| `login` | 静默登录 / 建号（首个用户自动为 admin；新用户 `status=pending` 待审核） | 任何用户 |
+| `checkPermission` | 返回角色、权限矩阵、审核状态与 `canReview` | 任何用户 |
+| `apply` | **注册申请**：`myStatus` 查自己的审核状态与已填内容 / `submit` 提交或修改后重提 | 任何已登录用户 |
+| `review` | **注册审核**：`pendingCount` / `list` / `approve` / `reject` / `block` / `restore` | admin / mentor |
 | `getProjects` | 项目列表 / 单项目（含项目组成员姓名、任务数、逾期数） | 已登录 |
 | `createProject` / `updateProject` / `deleteProject` | 项目增改删（改项目含调整项目组、换负责人） | admin / mentor / **该项目负责人**；删除仅 admin |
 | `getTasks` / `getTask` | 任务列表 / 详情（含项目负责人与成员，供前端判权） | 已登录 |
@@ -161,6 +170,22 @@ HBuilderX 打开 `lab-progress` → 运行到微信小程序模拟器（或按�
 
 ## 权限模型
 
+### 第一道门：谁能进系统（注册审核）
+
+| 状态 | 本人看到什么 | 能不能用系统 |
+|---|---|---|
+| `pending` 待审核 | 申请页（等待审核 / 刷新状态 / 修改申请） | ❌ |
+| `rejected` 已拒绝 | 申请页 + 拒绝原因 + 重新提交 | ❌ |
+| `blocked` 已禁用 | 申请页（提示联系管理员，不能再申请） | ❌ |
+| `active` 已通过 | 正常使用 | ✅ |
+
+- 新用户注册后就是 `pending`；**老账号没有 `status` 字段时按 `active` 处理**，升级不受影响
+- 导员（mentor）和管理员（admin）在首页「注册审核」里处理，图标上有待审红点
+- **服务端强制**：16 个业务云函数对未通过审核的账号直接返回 `code=PENDING / REJECTED / BLOCKED`，前端只是顺带跳转到申请页
+- 例外：**第一个登录的用户**自动 `admin` + `active`（否则刚部署就把自己锁在外面）
+
+### 第二道门：进来之后能做什么
+
 | 角色 | 项目 | 任务 | 成员 | 成果 |
 |---|---|---|---|---|
 | **admin** 超管 | 建/改/删任意项目、调整任意项目组 | 任意任务增改删与指派 | 改任意人角色（含授予超管） | 任意任务可交 |
@@ -179,7 +204,11 @@ HBuilderX 打开 `lab-progress` → 运行到微信小程序模拟器（或按�
 ## 数据库结构
 
 ```
-users     { _openid, nickName, avatarUrl, role, groupId, direction, intro,
+users     { _openid, nickName, avatarUrl, role,
+            status,                       // pending | active | rejected | blocked（缺省=active）
+            apply{ realName, studentId, reason, time, ts },
+            rejectReason, blockReason, reviewedBy, reviewedTime,
+            groupId, direction, intro,
             archived, archivedTime, archivedBy, createTime }
 projects  { name, description, status, progress, leaderId, memberIds[], creatorId, createTime, updateTime }
 tasks     { title, description, projectId, assignUser, deadline, status, progress, creatorId,
@@ -189,7 +218,9 @@ tasks     { title, description, projectId, assignUser, deadline, status, progres
 
 > `projects.leaderId` 必须在 `projects.memberIds` 里（服务端强制）；
 > `tasks.assignUser` 必须来自项目组；
-> `users.archived = true` 表示该成员已归档（毕业生），默认不出现在列表/下拉/统计里。
+> `users.archived = true` 表示该成员已归档（毕业生），默认不出现在列表/下拉/统计里；
+> `users.status` 缺省视为 `active`（兼容升级前的老账号）；
+> `apply.ts` 是毫秒时间戳，用于"1 分钟内不能重复提交申请"（**云函数在 UTC，别用字符串算时间差**）。
 
 ---
 
@@ -226,6 +257,29 @@ tasks     { title, description, projectId, assignUser, deadline, status, progres
 
 > ⚠️ 换 AppID 后**所有人的 openid 都会变**，所以第 4 步不可跳过；内容数据本身不会丢。
 > ⚠️ 个人主体的小程序**不支持主体变更/过户**，所以"把现在的 AppID 转给师弟"这条路是不通的。
+
+---
+
+## 上线说明（发布正式版后怎么管人）
+
+体验版有成员上限，长期使用必须发布正式版；但正式版**谁都能搜到**，所以系统自带准入审核：
+
+1. **上线前**
+   - 删掉云函数 `devTools`（有提权能力，`setStatus` 能绕过审核改别人状态）和 `devLog`
+   - 确认三集合权限是自定义规则 `{read:false, write:false}`
+   - 确认自己的账号是 `admin` 且 `status=active`（成员管理里能看角色）
+   - 需要导员一起审核的话，把他角色改成 `mentor`
+2. **上线后**
+   - 把小程序码/链接发到实验室群，说明"要申请，等审核"
+   - 新人打开就是「申请加入」页，填姓名/学号/说明 → 你在首页「注册审核」（有红点）里点通过
+   - 通过时可以顺便定角色：普通成员选 `member`，要当项目组长的选 `leader`
+3. **日常**
+   - 有人毕业：用**成员归档**（不要用「禁用」，禁用只是挡住登录，归档才是正规交接）
+   - 误拒了：「直接通过」或「放回待审核」
+   - 乱填/校外的人：「拒绝」并写原因，或「禁用」
+
+> 三道防线：首页入口跳转（体验）→ `utils/api.js` 统一拦截（体验）→ **16 个业务云函数服务端早返回**（真锁）。
+> 新增业务云函数时记得复制一遍闸门判断，见 [交接文档.md](交接文档.md) 第 5 章。
 
 ---
 

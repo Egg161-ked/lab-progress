@@ -28,7 +28,12 @@
 1. **前端只控制显隐，服务端必须独立再校验一次。** 改任何涉及权限的云函数时，先读一遍该函数头部的权限注释。
 2. **判断"能不能管这个项目"要用项目级条件**（`project.leaderId === openid`），**不要用全局角色位**。
    历史 bug：用全局 `canEditTask` 判断，导致组长在别人负责的项目里看到一堆点不动的按钮。
-3. **不能修改自己的角色**；不能归档自己；不能归档最后一个管理员。
+3. **不能修改自己的角色**；不能归档自己；不能归档最后一个管理员；不能审核自己；不能禁用最后一个管理员。
+4. **账号准入闸门**：`users.status` ∈ `pending / active / rejected / blocked`（**缺省=active**）。
+   **新增任何业务云函数，都要在取到 `caller` 后加 `notApproved(caller)` 早返回**（模板见 `交接文档.md` 第 5 章），
+   否则待审核的人能绕过前端直接调接口拿到数据。只有 `login` / `checkPermission` / `apply` / `review` 不加。
+5. **云函数运行在 UTC**：任何算时间差的地方（频率限制、过期判断）一律存/比**毫秒时间戳**；
+   东八区字符串（如 `'2026-10-23 12:00'`）解析出来会变成"未来时间"，会让判断恒真/恒假。
 
 角色：`admin` 超管 / `mentor` 导师 / `leader` 组长（项目负责人）/ `member` 普通成员。
 **项目负责人是项目级身份，与全局角色解耦**（谁被设为负责人，就对那个项目有管理权）。
@@ -109,7 +114,10 @@ HBuilderX/cli.exe publish mp-weixin --project <lab-progress 绝对路径>
 4. **轮询等待**，不要用固定 `sleep` 猜加载时间。
 5. 模拟器的 `page.scrollTop()` **不会派发 `onPageScroll`** —— 要直接调 `page.onPageScroll({scrollTop:300})`。
 6. 常用脚本：`phase-c-check.js`（九页样式/布局/截图）、`archive-test.js`（归档全流程）、
+   `review-test.js`（注册审核服务端全流程 + 闸门）、`review-ui-check.js`（申请页/审核台渲染 + 截图）、
    `final-verify.js`（权限边界）、`export-data.js`（备份）、`hig-audit.js`（触点尺寸）。
+7. **读 uni-app 页面的数据要用 `getCurrentPages()`**：`page.data()` 在这个版本读不到 Vue 上的字段（全 `undefined`），
+   用 `mp.evaluate(() => { const vm = getCurrentPages().pop().$vm; return vm.$data.xxx })`。
 
 ---
 
@@ -133,4 +141,6 @@ HBuilderX/cli.exe publish mp-weixin --project <lab-progress 绝对路径>
 3. 把 `lab-progress/utils/config.js`、`manifest.json`、`project.config.json` 里的 AppID/环境 ID 换成自己的
 4. 若要用订阅消息：`notify/config.json` 的 `MINIPROGRAM_STATE` 要从 `trial` 改成 `formal`（该功能已移除，保留说明）
 5. 公众平台提交 **ICP 备案** → 审核 → 发布正式版（体验版有成员数量上限，长期使用必须上线）
-6. 按 `docs/上架前检查清单.md` 与 `docs/真机多角色验收清单.md` 逐项过
+6. **确认准入审核能用**：至少一个 `admin` 且 `status=active`；用一个没审核过的微信号试，应当只看得到「申请加入」页
+   （`getProjects` 返回 `code=PENDING`）。别把唯一管理员「禁用」掉——那就没人能审核了
+7. 按 `docs/上架前检查清单.md` 与 `docs/真机多角色验收清单.md` 逐项过

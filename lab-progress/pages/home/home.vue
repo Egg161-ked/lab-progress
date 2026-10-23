@@ -34,6 +34,7 @@
 		>
 			<view class="grid-ico" :class="'grid-ico-' + a.tone">
 				<text class="grid-ico-text">{{ a.icon }}</text>
+				<view v-if="a.badge > 0" class="grid-badge">{{ a.badge > 99 ? '99+' : a.badge }}</view>
 			</view>
 			<text class="grid-label">{{ a.label }}</text>
 		</view>
@@ -124,6 +125,8 @@ export default {
 			avatarUrl: '',
 			nameInitial: '',
 			canCreateProject: false,
+			canReview: false,
+			pendingCount: 0,
 			// 给模板用的"哑数据"（模板只绑一层字段）
 			projectList: [],
 			projectCount: 0,
@@ -141,6 +144,7 @@ export default {
 		if (this._firstShowDone) {
 			const p = await loadPerm(true)
 			this.applyPerm(p)
+			await this.loadPendingCount()
 			await this.loadProjects(true)
 		} else {
 			this._firstShowDone = true
@@ -174,12 +178,14 @@ export default {
 			const p = await loadPerm(true)
 			this.applyPerm(p)
 			this.refreshMe()
+			await this.loadPendingCount()
 			await this.loadProjects()
 		},
 
 		applyPerm(p) {
 			this.roleName = '当前身份：' + roleText(p.role)
 			this.canCreateProject = !!p.canCreateProject
+			this.canReview = !!p.canReview
 			this.refreshActions()
 		},
 
@@ -206,7 +212,21 @@ export default {
 			list.push({ key: 'myTasks', label: '我的任务', icon: '✓', tone: 'green' })
 			list.push({ key: 'stats', label: '进度统计', icon: '％', tone: 'orange' })
 			list.push({ key: 'members', label: '成员管理', icon: '人', tone: 'gray' })
+			// 注册审核入口（仅管理员/导师）
+			if (this.canReview) {
+				list.push({ key: 'review', label: '注册审核', icon: '审', tone: 'red', badge: this.pendingCount })
+			}
 			this.actions = list
+		},
+
+		/** 待审核数量（红点） */
+		async loadPendingCount() {
+			if (!this.canReview) return
+			try {
+				const res = await api.reviewPendingCount()
+				this.pendingCount = Number(res.count) || 0
+				this.refreshActions()
+			} catch (e) {}
 		},
 
 		/** 把项目整理成模板能直接渲染的扁平结构 */
@@ -266,6 +286,8 @@ export default {
 				uni.navigateTo({ url: '/pages/stats/stats' })
 			} else if (key === 'members') {
 				uni.navigateTo({ url: '/pages/member/member' })
+			} else if (key === 'review') {
+				uni.navigateTo({ url: '/pages/review/review' })
 			}
 		}
 
@@ -302,6 +324,7 @@ export default {
 }
 
 .grid-ico{
+	position:relative;
 	width:88rpx;
 	height:88rpx;
 	border-radius:24rpx;
@@ -340,6 +363,29 @@ export default {
 
 .grid-ico-orange .grid-ico-text{
 	color:#FF9500;
+}
+
+.grid-ico-red{
+	background:rgba(255,59,48,0.12);
+}
+
+.grid-ico-red .grid-ico-text{
+	color:#FF3B30;
+}
+
+.grid-badge{
+	position:absolute;
+	top:-8rpx;
+	right:-8rpx;
+	min-width:32rpx;
+	height:32rpx;
+	border-radius:999rpx;
+	background:#FF3B30;
+	color:#fff;
+	font-size:20rpx;
+	line-height:32rpx;
+	text-align:center;
+	padding:0 8rpx;
 }
 
 .grid-label{
